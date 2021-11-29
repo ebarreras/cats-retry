@@ -60,7 +60,12 @@ object RetryPolicies {
 
   /** Retry without delay, giving up after the given number of retries.
     */
-  def limitRetries[M[_]: Applicative](maxRetries: Int): RetryPolicy[M] =
+  def limitRetries[M[_]: Applicative](maxRetries: Int): RetryPolicy[M] = {
+    require(
+      maxRetries >= 0,
+      s"maxRetries should be non-negative, was: $maxRetries"
+    )
+
     RetryPolicy.liftWithShow(
       { status =>
         if (status.retriesSoFar >= maxRetries) {
@@ -71,6 +76,7 @@ object RetryPolicies {
       },
       show"limitRetries(maxRetries=$maxRetries)"
     )
+  }
 
   /** Delay(n) = Delay(n - 2) + Delay(n - 1)
     *

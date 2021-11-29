@@ -10,6 +10,7 @@ import org.scalatestplus.scalacheck.Checkers
 import retry.PolicyDecision.{DelayAndRetry, GiveUp}
 
 import scala.concurrent.duration._
+import scala.util.{Failure, Success, Try}
 
 class RetryPoliciesSpec extends AnyFlatSpec with Checkers {
   override implicit val generatorDrivenConfig: PropertyCheckConfiguration =
@@ -30,6 +31,8 @@ class RetryPoliciesSpec extends AnyFlatSpec with Checkers {
   val genFiniteDuration: Gen[FiniteDuration] =
     Gen.posNum[Long].map(FiniteDuration(_, TimeUnit.NANOSECONDS))
 
+  val genNonNegInt: Gen[Int] = Arbitrary.arbitrary[Int].filter(_ >= 0)
+
   case class LabelledRetryPolicy(policy: RetryPolicy[Id], description: String) {
     override def toString: String = description
   }
@@ -49,8 +52,7 @@ class RetryPoliciesSpec extends AnyFlatSpec with Checkers {
           s"exponentialBackoff($baseDelay)"
         )
       ),
-      Gen
-        .posNum[Int]
+      genNonNegInt
         .map(maxRetries =>
           LabelledRetryPolicy(
             limitRetries(maxRetries),
@@ -181,6 +183,15 @@ class RetryPoliciesSpec extends AnyFlatSpec with Checkers {
         verdict == PolicyDecision.DelayAndRetry(Duration.Zero)
       } else {
         verdict == PolicyDecision.GiveUp
+      }
+  }
+
+  it should "throw IllegalArgumentException when maxRetries is negative" in check {
+    (maxRetries: Int) =>
+      Try(limitRetries(maxRetries)) match {
+        case Failure(_: IllegalArgumentException) if maxRetries < 0 => true
+        case Success(_) if maxRetries >= 0                          => true
+        case _                                                      => false
       }
   }
 
